@@ -1,0 +1,104 @@
+{
+  "pacing": {
+    "NoPacing": {
+      "completion_mean": 0.9999695263179647,
+      "completion_std": 1.0367125845167143e-05,
+      "conversions_mean": 13.187964571033955,
+      "conversions_std": 1.4207224170782433,
+      "roi_true_mean": 2.900102956312493,
+      "roi_violation_mean": 0.0,
+      "exhaust_h_mean": 17.133333333333333,
+      "plan_dev_mean": 0.18799479259372381
+    },
+    "Throttling": {
+      "completion_mean": 0.9998812129194489,
+      "completion_std": 0.0001420134935192629,
+      "conversions_mean": 13.141055615169801,
+      "conversions_std": 1.367782084927005,
+      "roi_true_mean": 2.8907152783168826,
+      "roi_violation_mean": 0.0,
+      "exhaust_h_mean": 23.666666666666668,
+      "plan_dev_mean": 0.003108801477815182
+    },
+    "PIDPacing": {
+      "completion_mean": 0.9997352574818423,
+      "completion_std": 0.0003891717076123536,
+      "conversions_mean": 17.407943911559293,
+      "conversions_std": 1.8696500855136955,
+      "roi_true_mean": 3.82957127966829,
+      "roi_violation_mean": 0.0,
+      "exhaust_h_mean": 23.71666666666667,
+      "plan_dev_mean": 0.0009901396172107926
+    },
+    "DualPacing": {
+      "completion_mean": 0.9983101131506684,
+      "completion_std": 0.0025614876010323358,
+      "conversions_mean": 17.347320806635786,
+      "conversions_std": 1.8243684888334701,
+      "roi_true_mean": 3.8224917369949134,
+      "roi_violation_mean": 0.0,
+      "exhaust_h_mean": 23.73333333333333,
+      "plan_dev_mean": 0.0373457007793946
+    },
+    "HindsightLP": {
+      "completion_mean": 1.000027060768786,
+      "completion_std": 4.89541814310907e-05,
+      "conversions_mean": 17.638235209694994,
+      "conversions_std": 1.8879645896456305,
+      "roi_true_mean": 3.8794497753710955,
+      "roi_violation_mean": 0.0,
+      "exhaust_h_mean": 24.0,
+      "plan_dev_mean": 0.0
+    }
+  },
+  "bandits": {
+    "Random": {
+      "conversions_mean": 21.288850939157964,
+      "conversions_std": 1.9270068234632083,
+      "cum_regret_mean": 4027.0939276660356,
+      "cum_regret_std": 210.20466709599125,
+      "completion_mean": 0.9999615019198882,
+      "roi_true_mean": 4.9772117967771665
+    },
+    "PureGreedy": {
+      "conversions_mean": 0.529416214485304,
+      "conversions_std": 0.01955122984535347,
+      "cum_regret_mean": 4378.977416085163,
+      "cum_regret_std": 417.2845139492242,
+      "completion_mean": 0.02185213206683777,
+      "roi_true_mean": 5.745075107922688
+    },
+    "EpsGreedy": {
+      "conversions_mean": 0.6120016402439359,
+      "conversions_std": 0.10150672628380084,
+      "cum_regret_mean": 3800.8686233445974,
+      "cum_regret_std": 925.9104072989325,
+      "completion_mean": 0.027923439636674294,
+      "roi_true_mean": 6.011579961928075
+    },
+    "LinearTS": {
+      "conversions_mean": 23.231946902803486,
+      "conversions_std": 4.982100810429628,
+      "cum_regret_mean": 3713.9516139865605,
+      "cum_regret_std": 35.150279078333156,
+      "completion_mean": 0.9978242755642052,
+      "roi_true_mean": 5.409233660817191
+    },
+    "LinUCB": {
+      "conversions_mean": 30.098380728497602,
+      "conversions_std": 3.617079764062373,
+      "cum_regret_mean": 3294.3368155732182,
+      "cum_regret_std": 280.62334672188115,
+      "completion_mean": 0.9965125422086994,
+      "roi_true_mean": 7.051498283281329
+    },
+    "Oracle": {
+      "conversions_mean": 66.96817086284632,
+      "conversions_std": 6.634132850279667,
+      "cum_regret_mean": 0.0,
+      "cum_regret_std": 0.0,
+      "completion_mean": 0.9999725421139045,
+      "roi_true_mean": 15.649847296405449
+    }
+  }
+}
