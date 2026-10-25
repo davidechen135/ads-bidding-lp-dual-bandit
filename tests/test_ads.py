@@ -46,9 +46,9 @@ def test_linucb_regret_sublinear():
     K = 3
     rng = np.random.default_rng(42)
     arms = [
-        CreativeArm(id=0, name="arm0", weight=np.array([0.1, 0.1, 0.1, 0.1]), intercept=-1.0),
-        CreativeArm(id=1, name="arm1", weight=np.array([0.5, 0.5, 0.5, 0.5]), intercept=0.5), # best
-        CreativeArm(id=2, name="arm2", weight=np.array([-0.2, -0.2, -0.2, -0.2]), intercept=-2.0),
+        CreativeArm(id=0, name="arm0", weight=np.array([0.0, 0.1, 0.1, 0.1]), intercept=-1.0),
+        CreativeArm(id=1, name="arm1", weight=np.array([0.0, 0.5, 0.5, 0.5]), intercept=0.5),  # best
+        CreativeArm(id=2, name="arm2", weight=np.array([0.0, -0.2, -0.2, -0.2]), intercept=-2.0),
     ]
     pol = LinUCBPolicy(alpha=1.0)
     pol.reset(K, d, rng)
@@ -56,7 +56,7 @@ def test_linucb_regret_sublinear():
     n_rounds = 500
     chosen_counts = np.zeros(K)
     for _ in range(n_rounds):
-        x = rng.normal(0, 1, (1, d))
+        x = np.column_stack([np.ones(1), rng.normal(0, 1, (1, d - 1))])
         arm, _ = pol.select(x)
         chosen_counts[arm[0]] += 1
         true_p = arms[arm[0]].true_cvr(x)[0]

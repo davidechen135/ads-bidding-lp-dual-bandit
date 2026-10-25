@@ -47,9 +47,12 @@ class BanditPolicy:
         self.d = n_features
         self.rng = rng
 
-    def select(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def select(
+        self, x: np.ndarray, return_point: bool = False
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Given context x of shape (N, d), return:
-        (chosen_arms: (N,), predicted_cvr: (N,))
+        (chosen_arms: (N,), bid_cvr: (N,)) or if return_point is True:
+        (chosen_arms: (N,), bid_cvr: (N,), point_cvr: (N,))
         """
         raise NotImplementedError
 
@@ -70,7 +73,7 @@ class LinUCBPolicy(BanditPolicy):
 
     name = "LinUCB"
 
-    def __init__(self, alpha: float = 0.5, ridge_lambda: float = 1.0, prior_cvr: float = 0.05):
+    def __init__(self, alpha: float = 0.5, ridge_lambda: float = 25.0, prior_cvr: float = 0.05):
         self.alpha = float(alpha)
         self.ridge_lambda = float(ridge_lambda)
         self.prior_cvr = float(prior_cvr)
@@ -78,17 +81,19 @@ class LinUCBPolicy(BanditPolicy):
     def reset(self, n_arms: int, n_features: int, rng: np.random.Generator) -> None:
         super().reset(n_arms, n_features, rng)
         self.A = [np.eye(self.d) * self.ridge_lambda for _ in range(n_arms)]
-        # Prior theta initialized to give expected prior_cvr
-        # Intercept is assumed to be absorbed or first feature, or simple prior mean
+        # Prior theta initialized to give expected prior_cvr on intercept (x[:, 0] == 1.0)
         self.prior_theta = np.zeros(self.d)
         self.prior_theta[0] = self.prior_cvr
         self.b = [self.A[a] @ self.prior_theta for a in range(n_arms)]
         self.A_inv = [np.linalg.inv(self.A[a]) for a in range(n_arms)]
 
-    def select(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def select(
+        self, x: np.ndarray, return_point: bool = False
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
         N = len(x)
         scores = np.zeros((N, self.n_arms))
-        pred_cvr = np.zeros((N, self.n_arms))
+        pred_cvr_ucb = np.zeros((N, self.n_arms))
+        pred_cvr_point = np.zeros((N, self.n_arms))
         for a in range(self.n_arms):
             theta = self.A_inv[a] @ self.b[a]
             mean = x @ theta
@@ -96,12 +101,15 @@ class LinUCBPolicy(BanditPolicy):
             std = np.sqrt(np.maximum(var, 0.0))
             score = mean + self.alpha * std
             scores[:, a] = score
-            # UCB-aware valuation for exploration
-            pred_cvr[:, a] = np.clip(score, 0.005, 0.50)
+            pred_cvr_ucb[:, a] = np.clip(score, 0.01, 0.50)
+            pred_cvr_point[:, a] = np.clip(mean, 0.01, 0.50)
 
         chosen = np.argmax(scores, axis=1)
-        chosen_cvr = pred_cvr[np.arange(N), chosen]
-        return chosen, chosen_cvr
+        chosen_ucb = pred_cvr_ucb[np.arange(N), chosen]
+        if return_point:
+            chosen_point = pred_cvr_point[np.arange(N), chosen]
+            return chosen, chosen_ucb, chosen_point
+        return chosen, chosen_ucb
 
     def update(self, x_won: np.ndarray, arm_won: np.ndarray, y_won: np.ndarray) -> None:
         if len(x_won) == 0:
@@ -123,7 +131,7 @@ class LinearTSPolicy(BanditPolicy):
 
     name = "LinearTS"
 
-    def __init__(self, v: float = 0.3, ridge_lambda: float = 1.0, prior_cvr: float = 0.05):
+    def __init__(self, v: float = 0.3, ridge_lambda: float = 25.0, prior_cvr: float = 0.05):
         self.v = float(v)
         self.ridge_lambda = float(ridge_lambda)
         self.prior_cvr = float(prior_cvr)
@@ -136,22 +144,30 @@ class LinearTSPolicy(BanditPolicy):
         self.b = [self.A[a] @ self.prior_theta for a in range(n_arms)]
         self.A_inv = [np.linalg.inv(self.A[a]) for a in range(n_arms)]
 
-    def select(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def select(
+        self, x: np.ndarray, return_point: bool = False
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
         N = len(x)
         scores = np.zeros((N, self.n_arms))
-        pred_cvr = np.zeros((N, self.n_arms))
+        pred_cvr_sample = np.zeros((N, self.n_arms))
+        pred_cvr_point = np.zeros((N, self.n_arms))
         for a in range(self.n_arms):
             theta_hat = self.A_inv[a] @ self.b[a]
             cov = (self.v ** 2) * self.A_inv[a]
             cov = 0.5 * (cov + cov.T) + 1e-8 * np.eye(self.d)
             theta_tilde = self.rng.multivariate_normal(theta_hat, cov)
             score = x @ theta_tilde
+            mean = x @ theta_hat
             scores[:, a] = score
-            pred_cvr[:, a] = np.clip(score, 0.005, 0.50)
+            pred_cvr_sample[:, a] = np.clip(score, 0.01, 0.50)
+            pred_cvr_point[:, a] = np.clip(mean, 0.01, 0.50)
 
         chosen = np.argmax(scores, axis=1)
-        chosen_cvr = pred_cvr[np.arange(N), chosen]
-        return chosen, chosen_cvr
+        chosen_sample = pred_cvr_sample[np.arange(N), chosen]
+        if return_point:
+            chosen_point = pred_cvr_point[np.arange(N), chosen]
+            return chosen, chosen_sample, chosen_point
+        return chosen, chosen_sample
 
     def update(self, x_won: np.ndarray, arm_won: np.ndarray, y_won: np.ndarray) -> None:
         if len(x_won) == 0:
@@ -172,7 +188,7 @@ class EpsilonGreedyPolicy(BanditPolicy):
 
     name = "EpsGreedy"
 
-    def __init__(self, epsilon: float = 0.1, ridge_lambda: float = 1.0, prior_cvr: float = 0.05):
+    def __init__(self, epsilon: float = 0.1, ridge_lambda: float = 25.0, prior_cvr: float = 0.05):
         self.epsilon = float(epsilon)
         self.ridge_lambda = float(ridge_lambda)
         self.prior_cvr = float(prior_cvr)
@@ -185,7 +201,9 @@ class EpsilonGreedyPolicy(BanditPolicy):
         self.b = [self.A[a] @ self.prior_theta for a in range(n_arms)]
         self.A_inv = [np.linalg.inv(self.A[a]) for a in range(n_arms)]
 
-    def select(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def select(
+        self, x: np.ndarray, return_point: bool = False
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
         N = len(x)
         means = np.zeros((N, self.n_arms))
         for a in range(self.n_arms):
@@ -195,8 +213,12 @@ class EpsilonGreedyPolicy(BanditPolicy):
         random_arms = self.rng.integers(0, self.n_arms, size=N)
         explore_mask = self.rng.random(N) < self.epsilon
         chosen = np.where(explore_mask, random_arms, greedy)
-        chosen_cvr = np.clip(means[np.arange(N), chosen], 0.005, 0.50)
-        return chosen, chosen_cvr
+        point_cvr = np.clip(means[np.arange(N), chosen], 0.01, 0.50)
+        # When exploring, bid at least the prior_cvr so exploratory pulls are not starved in RTB auctions
+        bid_cvr = np.where(explore_mask, np.maximum(point_cvr, self.prior_cvr), point_cvr)
+        if return_point:
+            return chosen, bid_cvr, point_cvr
+        return chosen, bid_cvr
 
     def update(self, x_won: np.ndarray, arm_won: np.ndarray, y_won: np.ndarray) -> None:
         if len(x_won) == 0:
@@ -217,7 +239,7 @@ class PureGreedyPolicy(LinUCBPolicy):
 
     name = "PureGreedy"
 
-    def __init__(self, ridge_lambda: float = 1.0, prior_cvr: float = 0.05):
+    def __init__(self, ridge_lambda: float = 25.0, prior_cvr: float = 0.05):
         super().__init__(alpha=0.0, ridge_lambda=ridge_lambda, prior_cvr=prior_cvr)
 
 
@@ -227,10 +249,15 @@ class RandomPolicy(BanditPolicy):
     def __init__(self, default_cvr: float = 0.05):
         self.default_cvr = default_cvr
 
-    def select(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def select(
+        self, x: np.ndarray, return_point: bool = False
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
         N = len(x)
         chosen = self.rng.integers(0, self.n_arms, size=N)
-        return chosen, np.full(N, self.default_cvr)
+        cvr = np.full(N, self.default_cvr)
+        if return_point:
+            return chosen, cvr, cvr
+        return chosen, cvr
 
     def update(self, x_won: np.ndarray, arm_won: np.ndarray, y_won: np.ndarray) -> None:
         pass
@@ -244,11 +271,15 @@ class OraclePolicy(BanditPolicy):
     def __init__(self, arms: Sequence[CreativeArm]):
         self.arms = list(arms)
 
-    def select(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def select(
+        self, x: np.ndarray, return_point: bool = False
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
         N = len(x)
         true_cvr_matrix = np.column_stack([arm.true_cvr(x) for arm in self.arms])
         chosen = np.argmax(true_cvr_matrix, axis=1)
         best_cvr = true_cvr_matrix[np.arange(N), chosen]
+        if return_point:
+            return chosen, best_cvr, best_cvr
         return chosen, best_cvr
 
     def update(self, x_won: np.ndarray, arm_won: np.ndarray, y_won: np.ndarray) -> None:
@@ -293,7 +324,7 @@ class BanditValueProvider:
 
     def values(self, t: int, lo: int, hi: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         x_slot = self.day.x[lo:hi]
-        chosen_arms, pred_cvr = self.policy.select(x_slot)
+        chosen_arms, bid_cvr, point_cvr = self.policy.select(x_slot, return_point=True)
         self.current_arms = chosen_arms
 
         # True conversion probability for the chosen arm
@@ -307,9 +338,10 @@ class BanditValueProvider:
         ctr_true = self.day.ctr[lo:hi]
         p_true_conv = ctr_true * chosen_true_cvr
 
-        # Predicted value for bidding
-        v_bid = pctr * pred_cvr * self.day.value_per_conv
-        v_acct = v_bid.copy()
+        # Predicted value for bidding (using exploration/UCB score)
+        v_bid = pctr * bid_cvr * self.day.value_per_conv
+        # Predicted value for accounting & ROI pacing (using point estimate of value)
+        v_acct = pctr * point_cvr * self.day.value_per_conv
 
         return v_bid, v_acct, p_true_conv
 

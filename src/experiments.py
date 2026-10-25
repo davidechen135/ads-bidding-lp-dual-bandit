@@ -136,6 +136,7 @@ def run_bandit_benchmark(
     arms = []
     for a in range(n_arms):
         w = rng_init.normal(0, 0.4, size=d)
+        w[0] = 0.0  # column 0 is intercept 1.0; baseline logit governed by arm.intercept
         # One high-potential arm, some average, one weak
         shift = 0.5 * (a - n_arms // 2)
         arms.append(CreativeArm(id=a, name=f"Creative_{a}", weight=w, intercept=-2.8 + shift))

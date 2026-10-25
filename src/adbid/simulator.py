@@ -144,8 +144,11 @@ class AuctionSimulator:
         rng = np.random.default_rng(model_seed)
         d = self.m.n_features
         # fixed "world" weights for CTR / CVR (shared across days)
+        # feature 0 is intercept 1.0; set w[0] = 0.0 so camp.base_ctr and camp.base_cvr govern baseline
         self.w_ctr = rng.normal(0, 0.45, d)
+        self.w_ctr[0] = 0.0
         self.w_cvr = rng.normal(0, 0.35, d)
+        self.w_cvr[0] = 0.0
         self.base_curve = traffic_curve(self.m.n_slots)
         self.comp = competition_curve(self.m.n_slots)
 
@@ -163,7 +166,9 @@ class AuctionSimulator:
         slot = np.repeat(np.arange(T), counts)
         n = len(slot)
 
-        x = rng.normal(0, 1, (n, m.n_features))
+        # Context features with explicit column 0 as constant 1.0 (intercept)
+        x_raw = rng.normal(0, 1, (n, m.n_features - 1))
+        x = np.column_stack([np.ones(n), x_raw])
         hour = (slot + 0.5) * 24.0 / T
         # evening users convert a bit better, night users a bit worse
         hour_cvr = 0.15 * np.sin((hour - 14.0) / 24.0 * 2 * np.pi)
